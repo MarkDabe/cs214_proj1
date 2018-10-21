@@ -423,15 +423,26 @@ int main(int argc, char* argv[]) {
     int status = 0;
     char* state = recursive(input_directory, argv[2], output_directory);
 
+
     if(strcmp(state, "parent") == 0) {
+
+        printf("Initial PID: %d\n", getpid());
+
+        printf("PIDS of all child processes: ");
+
         while (PIDS[i] != 0) {
-            printf("%d\n", PIDS[i]);
+            printf(" %d", PIDS[i]);
             waitpid(PIDS[i], &status, NULL);
+            if(PIDS[i+1] != 0){
+                printf(",");
+            }
+
             i++;
         }
+        printf("\n");
 
 
-        printf("number of process: %d\n", COUNTER);
+        printf("Total number of processes: %d\n", COUNTER);
 
 
     }
