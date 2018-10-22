@@ -10,7 +10,7 @@ int PIDS[256] = {0};
 int COUNTER = 0;
 
 
-#include "main.h"
+#include "scannerCSVsorter.h"
 
 
 int merge_numeric = 1;
@@ -74,10 +74,14 @@ int add_fields(entry* array_entry,int* fields_count,  char* line){
     int i = 0;
     char* field = NULL;
 
+    int linecounter = 0;
+
 
     if(*fields_count == -1){
         *fields_count = countfields(line);
     }
+
+
 
 
 
@@ -86,7 +90,9 @@ int add_fields(entry* array_entry,int* fields_count,  char* line){
     strncpy(temp,line,array_entry->length);
     array_entry->fields = (char**) malloc((*fields_count) * sizeof(char*));
 
-    while ((field = strsep(&temp, ",")) != NULL && i < 28) {
+    while ((field = strsep(&temp, ",")) != NULL) {
+
+        linecounter += 1;
 
         sanitize_content(field);
 
@@ -125,7 +131,14 @@ int add_fields(entry* array_entry,int* fields_count,  char* line){
 
     }
 
+
     free(temp);
+
+    if (*fields_count != linecounter){
+
+        fprintf(stderr, "FILE HAS WRONG FORMAT\n");
+        return -1;
+    }
 
 
     return 0;
@@ -138,9 +151,10 @@ int add_fields(entry* array_entry,int* fields_count,  char* line){
 // build the array of entries through opening a file in memory and counting the number of entries needed to build the array
 entry** load_array(int* entries_count, int* fields_count, char* filename){
 
-    //TODO check validity of CSV file
+
 
     int i = 0;
+    int status = 0;
 
     FILE* fptr = fopen(filename , "r");
 
@@ -156,13 +170,21 @@ entry** load_array(int* entries_count, int* fields_count, char* filename){
     entry** buffer = (entry **) malloc(sizeof(entry*) * (*entries_count));
 
 
-    char line_buffer[2048] ={0};
+    char line_buffer[4096] ={0};
 
     while (fgets(line_buffer, sizeof(line_buffer), fptr) != NULL) {
 
         buffer[i] = (entry*) malloc(sizeof(entry));
 
-        add_fields(buffer[i], fields_count,line_buffer);
+        status= add_fields(buffer[i], fields_count,line_buffer);
+
+        if(status == -1){
+            fclose(fptr);
+            free(buffer);
+            return NULL;
+
+        }
+
 
 
         i++;
@@ -195,6 +217,10 @@ void sorter(const char* pathname, const char* column, const char* output_directo
     int j = 0;
 
     entry** entries = load_array(&entries_count, &fields_count, pathname);
+
+    if(entries == NULL){
+        return;
+    }
 //
 
 // determine if column to be sorted exists in fields
