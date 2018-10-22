@@ -145,8 +145,6 @@ entry** load_array(int* entries_count, int* fields_count, char* filename){
     FILE* fptr = fopen(filename , "r");
 
     if(fptr == NULL){
-        printf("%s\n", filename);
-        perror(fptr);
         return NULL;
     }
 
@@ -183,7 +181,7 @@ entry** load_array(int* entries_count, int* fields_count, char* filename){
 
 //
 
-void sorter(const char* filename, const char* column, const char* output_directoy){
+void sorter(const char* pathname, const char* column, const char* output_directoy, char* rawfilename){
 
 
 
@@ -196,7 +194,7 @@ void sorter(const char* filename, const char* column, const char* output_directo
     int i = 0;
     int j = 0;
 
-    entry** entries = load_array(&entries_count, &fields_count, filename);
+    entry** entries = load_array(&entries_count, &fields_count, pathname);
 //
 
 // determine if column to be sorted exists in fields
@@ -256,22 +254,31 @@ void sorter(const char* filename, const char* column, const char* output_directo
 //
 
     //TODO output filename and file directory here
+    char ouptutilfe_path[512] = {0};
+
+    rawfilename[strlen(rawfilename) - 4] = '\0';
+
+    sprintf(ouptutilfe_path, "%s/%s-sorted-%s.csv",output_directoy,rawfilename,column);
+
+
+    FILE * output = fopen(ouptutilfe_path, "w");
 
 // print the sorted array
     for(i = 0; i < entries_count - 1; i++) {
 
         for(j= 0; j < fields_count ; j++){
 
-            printf("%s", entries[i]->fields[j]);
+            fprintf(output, "%s", entries[i]->fields[j]);
             if(j == fields_count - 1){
                 break;
             }
-            printf(",");
+            fprintf(output, ",");
         }
 
-        printf("\n");
+        fprintf(output, "\n");
 
     }
+    fclose(output);
 //
 
 // free memory
@@ -304,6 +311,7 @@ void sorter(const char* filename, const char* column, const char* output_directo
 
 char* recursive(const char* input_directory, const char* column, const char* output_directory){
 
+
     DIR *dp;
     DIR *dp2;
     struct dirent *ep;
@@ -319,12 +327,10 @@ char* recursive(const char* input_directory, const char* column, const char* out
             }
 
 
-            sprintf(pathname,"%s%s/",input_directory, ep->d_name);
+            sprintf(pathname,"%s/%s/",input_directory, ep->d_name);
 
 
             dp2 = opendir(pathname);
-
-            puts(ep->d_name);
 
 
             if (dp2 != NULL) {
@@ -332,7 +338,7 @@ char* recursive(const char* input_directory, const char* column, const char* out
                 closedir(dp2);
 
 
-                char * status = recursive(pathname, column, input_directory);
+                char * status = recursive(pathname, column, output_directory);
 
 
                 if(strcmp(status, "child") == 0){
@@ -341,22 +347,37 @@ char* recursive(const char* input_directory, const char* column, const char* out
 
             }else{
 
-                pathname[strlen(pathname) - 1 ] = '\0';
+                int offset = (int) strlen(ep->d_name) -4;
 
-                int pid = fork();
+                if(strcmp(ep->d_name+offset,".csv") == 0 ||
+                        strcmp(ep->d_name + offset,".CSV") == 0 ) {
 
-                if(pid == 0){
-//                    placeholder();
-                    sorter(pathname, column, output_directory);
-                    return "child";
-                }
 
-                else{
+                    int pid = fork();
 
-                    PIDS[COUNTER] = pid;
-                    COUNTER++;
-                    continue;
+                    if (pid == 0) {
+                        //calling the sorter function in the child
 
+                        pathname[strlen(pathname) - 1] = '\0';
+
+
+                        if (output_directory == NULL) {
+                            sorter(pathname, column, input_directory, ep->d_name);
+                        }else{
+                            sorter(pathname, column, output_directory, ep->d_name);
+                        }
+
+
+
+                        return "child";
+
+                    } else {
+
+                        PIDS[COUNTER] = pid;
+                        COUNTER++;
+                        continue;
+
+                    }
                 }
 
             }
@@ -426,21 +447,34 @@ int main(int argc, char* argv[]) {
 
     if(strcmp(state, "parent") == 0) {
 
+
+
+        while (PIDS[i] != 0) {
+            waitpid(PIDS[i], &status, NULL);
+
+
+            i++;
+        }
+
         printf("Initial PID: %d\n", getpid());
 
         printf("PIDS of all child processes: ");
 
+        i = 0;
+
         while (PIDS[i] != 0) {
+
             printf(" %d", PIDS[i]);
-            waitpid(PIDS[i], &status, NULL);
+
             if(PIDS[i+1] != 0){
                 printf(",");
             }
 
             i++;
-        }
-        printf("\n");
 
+        }
+
+        printf("\n");
 
         printf("Total number of processes: %d\n", COUNTER);
 
