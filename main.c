@@ -252,8 +252,6 @@ void sorter(const char* pathname, const char* column, const char* output_directo
 // call sort on the array
     sort(entries, internal_buffer, sorting_index, 1, entries_count - 2);
 //
-
-    //TODO output filename and file directory here
     char ouptutilfe_path[512] = {0};
 
     rawfilename[strlen(rawfilename) - 4] = '\0';
