@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 
 int PIDS[256] = {0};
@@ -155,6 +157,10 @@ entry** load_array(int* entries_count, int* fields_count, char* filename){
 
     int i = 0;
     int status = 0;
+
+    if(strstr(filename, "-sorted-")!= NULL){
+        return NULL;
+    }
 
     FILE* fptr = fopen(filename , "r");
 
@@ -335,7 +341,6 @@ void sorter(const char* pathname, const char* column, const char* output_directo
 
 char* recursive(const char* input_directory, const char* column, const char* output_directory){
 
-
     DIR *dp;
     DIR *dp2;
     struct dirent *ep;
@@ -361,17 +366,33 @@ char* recursive(const char* input_directory, const char* column, const char* out
 
                 closedir(dp2);
 
+                int pid = fork();
 
-                char * status = recursive(pathname, column, output_directory);
+                if(pid == 0){
 
+                    recursive(pathname, column, output_directory);
 
-                if(strcmp(status, "child") == 0){
                     return "child";
+
+                }else{
+
+                    PIDS[COUNTER] = pid;
+                    COUNTER++;
+                    continue;
                 }
+
+//                char * status = recursive(pathname, column, output_directory);
+//
+//
+//                if(strcmp(status, "child") == 0){
+//                    return "child";
+//                }
 
             }else{
 
                 int offset = (int) strlen(ep->d_name) -4;
+
+                // TODO call fork before checking file extension
 
                 if(strcmp(ep->d_name+offset,".csv") == 0 ||
                         strcmp(ep->d_name + offset,".CSV") == 0 ) {
@@ -403,9 +424,7 @@ char* recursive(const char* input_directory, const char* column, const char* out
 
                     }
                 }
-
             }
-
         }
 
         closedir(dp);
@@ -425,6 +444,7 @@ int main(int argc, char* argv[]) {
     char* input_directory = "./";
     char* output_directory = NULL;
 
+    //TODO make the flags independent
 
     // check for the number of arguments
     if( argc < 3  || argc == 4 || argc == 6 ){
@@ -469,16 +489,40 @@ int main(int argc, char* argv[]) {
     char* state = recursive(input_directory, argv[2], output_directory);
 
 
+    while (PIDS[i] != 0) {
+        waitpid(PIDS[i], &status, NULL);
+        i++;
+    }
+
+
     if(strcmp(state, "parent") == 0) {
 
 
+        // ftok to generate unique key
+        key_t key = ftok("shmfile",65);
 
-        while (PIDS[i] != 0) {
-            waitpid(PIDS[i], &status, NULL);
+        // shmget returns an identifier in shmid
+        int shmid = shmget(key,1024,0666|IPC_CREAT);
 
+        // shmat to attach to shared memory
+        char *str = (char*) shmat(shmid,(void*)0,0);
 
-            i++;
+        char* number = NULL;
+
+        while ((number = strsep(&str, ",")) != NULL) {
+
+            if (strcmp(number, "") != 0) {
+                PIDS[COUNTER] = atoi(number);
+                COUNTER++;
+            }
+
         }
+
+        //detach from shared memory
+        shmdt(str);
+
+        // destroy the shared memory
+        shmctl(shmid,IPC_RMID,NULL);
 
         printf("Initial PID: %d\n", getpid());
 
@@ -503,10 +547,45 @@ int main(int argc, char* argv[]) {
         printf("Total number of processes: %d\n", COUNTER);
 
 
+    }else{
+
+        i = 0;
+
+        // ftok to generate unique key
+        key_t key = ftok("shmfile",65);
+
+        // shmget returns an identifier in shmid
+        int shmid = shmget(key,1024,0666|IPC_CREAT);
+
+        // shmat to attach to shared memory
+        char *str = (char*) shmat(shmid,(void*)0,0);
+
+        char str2[1024] = {0};
+
+        char str3[1024] = {0};
+
+        while(PIDS[i] != 0) {
+
+            sprintf(str2, "%d",PIDS[i]);
+
+            if(PIDS[i+1] == 0){
+                strcat(str2, ",");
+            }
+
+            i++;
+
+        }
+
+        strcpy(str3,str);
+
+        strcat(str3, str2);
+
+        strcpy(str, str3);
+
+        shmdt(str);
+
+
     }
-
-
-
 
     return 0;
 }
