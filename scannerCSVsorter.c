@@ -534,7 +534,7 @@ int main(int argc, char* argv[]) {
 
                 }
 
-                if(bool == 1) {
+                if(bool == 1 && PIDS[j] != 0) {
 
                     PIDS[COUNTER] = atoi(number);
                     COUNTER++;
