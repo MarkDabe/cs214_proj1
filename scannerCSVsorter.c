@@ -6,6 +6,10 @@
 #include <dirent.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 
 int PIDS[256] = {0};
@@ -394,25 +398,29 @@ char* recursive(const char* input_directory, const char* column, const char* out
 
                 // TODO call fork before checking file extension
 
-                if(strcmp(ep->d_name+offset,".csv") == 0 ||
-                        strcmp(ep->d_name + offset,".CSV") == 0 ) {
+
+
 
 
                     int pid = fork();
 
+
                     if (pid == 0) {
+
                         //calling the sorter function in the child
 
-                        pathname[strlen(pathname) - 1] = '\0';
+                        if(strcmp(ep->d_name+offset,".csv") == 0 ||
+                           strcmp(ep->d_name + offset,".CSV") == 0 ) {
+
+                            pathname[strlen(pathname) - 1] = '\0';
 
 
-                        if (output_directory == NULL) {
-                            sorter(pathname, column, input_directory, ep->d_name);
-                        }else{
-                            sorter(pathname, column, output_directory, ep->d_name);
+                            if (output_directory == NULL) {
+                                sorter(pathname, column, input_directory, ep->d_name);
+                            }else{
+                                sorter(pathname, column, output_directory, ep->d_name);
+                            }
                         }
-
-
 
                         return "child";
 
@@ -425,7 +433,6 @@ char* recursive(const char* input_directory, const char* column, const char* out
                     }
                 }
             }
-        }
 
         closedir(dp);
 
@@ -483,7 +490,6 @@ int main(int argc, char* argv[]) {
     }
 
 
-
     int i = 0;
     int status = 0;
     char* state = recursive(input_directory, argv[2], output_directory);
@@ -497,7 +503,7 @@ int main(int argc, char* argv[]) {
 
     if(strcmp(state, "parent") == 0) {
 
-
+//
         // ftok to generate unique key
         key_t key = ftok("shmfile",65);
 
@@ -512,8 +518,28 @@ int main(int argc, char* argv[]) {
         while ((number = strsep(&str, ",")) != NULL) {
 
             if (strcmp(number, "") != 0) {
-                PIDS[COUNTER] = atoi(number);
-                COUNTER++;
+
+                int j = 0;
+                int num = atoi(number);
+                int bool = 1;
+
+                while(PIDS[j] != 0){
+
+                    if(num == PIDS[j]){
+                        bool = 0;
+                        break;
+                    }
+
+                    j++;
+
+                }
+
+                if(bool == 1) {
+
+                    PIDS[COUNTER] = atoi(number);
+                    COUNTER++;
+                }
+
             }
 
         }
@@ -524,11 +550,12 @@ int main(int argc, char* argv[]) {
         // destroy the shared memory
         shmctl(shmid,IPC_RMID,NULL);
 
+
+        i = 0;
+
         printf("Initial PID: %d\n", getpid());
 
         printf("PIDS of all child processes: ");
-
-        i = 0;
 
         while (PIDS[i] != 0) {
 
@@ -547,7 +574,7 @@ int main(int argc, char* argv[]) {
         printf("Total number of processes: %d\n", COUNTER);
 
 
-    }else{
+    }else if(strcmp(state, "child") == 0){
 
         i = 0;
 
@@ -564,7 +591,9 @@ int main(int argc, char* argv[]) {
 
         char str3[1024] = {0};
 
+
         while(PIDS[i] != 0) {
+
 
             sprintf(str2, "%d",PIDS[i]);
 
@@ -583,7 +612,6 @@ int main(int argc, char* argv[]) {
         strcpy(str, str3);
 
         shmdt(str);
-
 
     }
 
