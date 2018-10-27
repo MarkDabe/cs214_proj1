@@ -298,7 +298,7 @@ void sorter(const char* pathname, const char* column, const char* output_directo
     FILE * output = fopen(ouptutilfe_path, "w");
 
 // print the sorted array
-    for(i = 0; i < entries_count - 1; i++) {
+    for(i = 0; i < entries_count ; i++) {
 
         for(j= 0; j < fields_count ; j++){
 
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
     //TODO make the flags independent
 
     // check for the number of arguments
-    if( argc < 3  || argc == 4 || argc == 6 ){
+    if( argc < 3  || argc == 4 || argc == 6  || argc > 7){
         fprintf(stderr, "INVALID NUMBER OF INPUTS\n");
         return 0;
     }
@@ -466,26 +466,70 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 //
-
     if( argc >= 5){
 
-        if(strcmp(argv[3], "-d") != 0){
+        if(!(strcmp(argv[3], "-d") == 0 || strcmp(argv[3], "-o") == 0)){
             fprintf(stderr, "INVALID COMMAND\n");
             return 0;
         }
 
-        input_directory = argv[4];
+        if(strcmp(argv[3], "-d") == 0){
 
-        if (argc > 5){
+            input_directory = argv[4];
 
-            if(strcmp(argv[5], "-o") != 0){
-                fprintf(stderr, "INVALID COMMAND\n");
+            DIR* dir = opendir(input_directory);
+            if (dir) {
+                closedir(dir);
+            }else{
+
+                fprintf(stderr, "INPUT DIRECTORY DOES NOT EXIST\n");
                 return 0;
+
             }
 
-            output_directory = argv[6];
+
+            if (argc > 5){
+
+                if(strcmp(argv[5], "-o") != 0){
+                    fprintf(stderr, "INVALID COMMAND\n");
+                    return 0;
+                }
+
+
+                output_directory = argv[6];
+
+
+                dir = opendir(output_directory);
+
+                if (dir) {
+                    closedir(dir);
+                }else {
+                    fprintf(stderr, "OUTPUT DIRECTORY DOES NOT EXIST\n");
+                    return 0;
+                }
+
+            }
+
+        }else if(strcmp(argv[3], "-o") == 0){
+
+            output_directory = argv[4];
+
+            DIR* dir = opendir(output_directory);
+            if (dir) {
+                closedir(dir);
+            }else{
+                fprintf(stderr, "OUTPUT DIRECTORY DOES NOT EXIST\n");
+                return 0;
+
+            }
 
         }
+
+
+
+
+
+
 
     }
 
@@ -534,9 +578,13 @@ int main(int argc, char* argv[]) {
 
                 }
 
-                if(bool == 1 && PIDS[j] != 0) {
+                if(num == 0){
+                    continue;
+                }
 
-                    PIDS[COUNTER] = atoi(number);
+                if(bool == 1) {
+
+                    PIDS[COUNTER] = num;
                     COUNTER++;
                 }
 
